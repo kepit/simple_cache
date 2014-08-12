@@ -25,13 +25,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(ETS_TID, atom_to_list(?MODULE)).
 -define(NAME(N), list_to_atom(?ETS_TID ++ "_" ++ atom_to_list(N))).
-
+-define(STATUSNAME(N), list_to_atom("updatingstatus_" ++ atom_to_list(N))).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Exports.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Public API.
 -export([init/1]).
 -export([get/4]).
+-export([update/4]).
+-export([force_update/4]).
 -export([flush/1, flush/2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -57,6 +59,29 @@ flush(CacheName, Key) ->
 flush(CacheName) ->
   RealName = ?NAME(CacheName),
   true = ets:delete_all_objects(RealName).
+
+
+force_update(CacheName, LifeTime, Key, FunResult) ->
+    RealName = ?NAME(CacheName),
+    V = FunResult(),
+    ets:insert(RealName, {Key, V}),
+    erlang:send_after(LifeTime, simple_cache_expirer, {update, CacheName, LifeTime, Key, FunResult}),
+    V.
+
+update(CacheName, LifeTime, Key, FunResult) ->
+    RealName = ?NAME(CacheName),
+    UpdatingKey = ?STATUSNAME(Key),
+    case ets:lookup(RealName, Key) of
+	[] ->
+	    case ets:lookup(RealName, UpdatingKey) of
+		[] ->
+		    ets:insert(RealName, {UpdatingKey, 0}),
+		    force_update(CacheName, LifeTime, Key, FunResult);
+		_ -> 
+		    FunResult()
+	    end;
+	[{Key, R}] -> R
+    end.
 
 %% @doc Tries to lookup Key in the cache, and execute the given FunResult
 %% on a miss.
