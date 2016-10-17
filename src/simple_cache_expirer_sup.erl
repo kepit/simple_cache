@@ -3,7 +3,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -15,17 +15,17 @@
 %% API functions
 %% ===================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Arg) ->
+    supervisor:start_link(simple_cache_expirer_sup, [Arg]).
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init([]) ->
-    {ok, { {one_for_one, 5, 10}, [
-				  {simple_cache_expirer,
-				   {simple_cache_expirer, start_link,[]},
+init(Arg) ->
+    {ok, { {one_for_one, 500000, 1}, [
+				  {simple_cache_expirer_id,
+				   {simple_cache_expirer, start_link,[Arg]},
 				   permanent,
 				   infinity,
 				   worker,
@@ -34,3 +34,5 @@ init([]) ->
 				 ]} }.
 
 
+terminate(Reason, _S) ->
+    io:format("simple_cache_expirer_sup terminating because of ~p!~n", [Reason]).

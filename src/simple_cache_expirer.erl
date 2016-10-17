@@ -32,7 +32,7 @@
 %% Exports.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Public API.
--export([start_link/0]).
+-export([start_link/1]).
 
 %%% gen_server behavior
 -export([
@@ -44,15 +44,17 @@
 %% Public API.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% @doc Starts the gen_server.
--spec start_link() -> {ok, pid()} | ignore | {error, term()}.
-start_link() ->
-  gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+-spec start_link([term()]) -> {ok, pid()} | ignore | {error, term()}.
+start_link(Args) ->
+  gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% gen_server API.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec init([]) -> {ok, state()}.
-init([]) ->
+-spec init([term()]) -> {ok, state()}.
+init([Arg]) ->
+  simple_cache:flush(Arg),
+  io:format("simple_cache_expirer starting~n", []),
   {ok, #state{}}.
 
 -spec handle_cast(any(), state()) -> {noreply, state()}.
@@ -78,7 +80,8 @@ handle_call(Req, _From, State) ->
   {reply, {invalid_request, Req}, State}.
 
 -spec terminate(atom(), state()) -> ok.
-terminate(_Reason, _State) ->
+terminate(Reason, _State) ->
+  io:format("simple_cache_expirer terminating because of ~p!~n", [Reason]),
   ok.
 
 -spec code_change(string(), state(), any()) -> {ok, state()}.
